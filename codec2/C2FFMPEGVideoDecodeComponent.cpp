@@ -871,12 +871,16 @@ std::shared_ptr<C2Buffer> C2FFMPEGVideoDecodeComponent::getOutputBuffer(const st
 
     std::shared_ptr<C2GraphicBlock> block;
     c2_status_t err;
+    // With DRM PRIME the YUV output is NV12 (getAVFormat), so the buffer must be NV12 too: the
+    // flexible format, which gralloc allocates as NV12. YV12 also can't be imported by Mesa.
+    const bool nv12 = mUtils->getAVFormat() == AV_PIX_FMT_NV12;
+    const uint32_t format = nv12 ? HAL_PIXEL_FORMAT_YCbCr_420_888 : mUtils->getPixelFormat(false);
 
-    err = pool->fetchGraphicBlock(ALIGN(mFrame->width, 16), ALIGN(mFrame->height, 2), mUtils->getPixelFormat(false),
+    err = pool->fetchGraphicBlock(ALIGN(mFrame->width, 16), ALIGN(mFrame->height, 2), format,
                                   { C2MemoryUsage::CPU_READ, C2MemoryUsage::CPU_WRITE }, &block);
     if (err != C2_OK) {
         ALOGE("getOutputBuffer: failed to fetch graphic block %d x %d (%#x) err = %d",
-              mFrame->width, mFrame->height, mUtils->getPixelFormat(false), err);
+              mFrame->width, mFrame->height, format, err);
         return NULL;
     }
 
@@ -893,7 +897,14 @@ std::shared_ptr<C2Buffer> C2FFMPEGVideoDecodeComponent::getOutputBuffer(const st
     C2PlanarLayout layout = wView.layout();
     struct SwsContext* currentImgConvertCtx = mImgConvertCtx;
 
-    if (mUtils->getPixelFormat(false) == HAL_PIXEL_FORMAT_YV12) {
+    if (nv12) {
+        data[0] = wView.data()[C2PlanarLayout::PLANE_Y];
+        data[1] = wView.data()[C2PlanarLayout::PLANE_U];
+        data[2] = data[3] = nullptr;
+        linesize[0] = layout.planes[C2PlanarLayout::PLANE_Y].rowInc;
+        linesize[1] = layout.planes[C2PlanarLayout::PLANE_U].rowInc;
+        linesize[2] = linesize[3] = 0;
+    } else if (format == HAL_PIXEL_FORMAT_YV12) {
         data[0] = wView.data()[C2PlanarLayout::PLANE_Y];
         data[1] = wView.data()[C2PlanarLayout::PLANE_U];
         data[2] = wView.data()[C2PlanarLayout::PLANE_V];
