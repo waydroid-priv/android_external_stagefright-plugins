@@ -19,6 +19,7 @@
 
 #include <android-base/logging.h>
 #include <android-base/properties.h>
+#include <android-base/strings.h>
 #include <binder/ProcessState.h>
 #include <codec2/hidl/1.2/ComponentStore.h>
 #include <hidl/HidlTransportSupport.h>
@@ -136,7 +137,7 @@ public:
             C2String name,
             std::shared_ptr<C2Component>* const component) override {
         if (::android::base::GetProperty("ro.waydroid.codec2-impl", "c2.ffmpeg") != "c2.ffmpeg") {
-            return name.starts_with("c2.ffmpeg.") ? C2_OMITTED : C2_NOT_FOUND;
+            return base::StartsWith(name, "c2.ffmpeg.") ? C2_OMITTED : C2_NOT_FOUND;
         }
         ALOGD("createComponent: %s", name.c_str());
         for (int i = 0; i < kNumAudioComponents; i++) {
@@ -167,7 +168,7 @@ public:
             C2String name,
             std::shared_ptr<C2ComponentInterface>* const interface) override {
         if (::android::base::GetProperty("ro.waydroid.codec2-impl", "c2.ffmpeg") != "c2.ffmpeg") {
-            return name.starts_with("c2.ffmpeg.") ? C2_OMITTED : C2_NOT_FOUND;
+            return base::StartsWith(name, "c2.ffmpeg.") ? C2_OMITTED : C2_NOT_FOUND;
         }
         ALOGD("createInterface: %s", name.c_str());
         for (int i = 0; i < kNumAudioComponents; i++) {
